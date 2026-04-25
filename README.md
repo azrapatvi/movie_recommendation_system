@@ -1,102 +1,107 @@
-# 🎬 Movie Recommender System
+# 🎬 Movie Recommendation System
 
-A beginner-friendly machine learning project that recommends movies similar to the one you like — just like Netflix or YouTube suggestions!
+A machine learning web app that recommends 5 movies similar to the one you pick — complete with **movie posters** fetched live from the internet! Built with **Streamlit** and powered by **Cosine Similarity**.
+
+---
+
+## 🌐 Live Demo Preview
+
+> Select a movie → Click "Recommend" → See 5 similar movies with posters instantly!
 
 ---
 
 ## 📌 What Does This Project Do?
 
-You give it a movie name (like **"Avatar"**), and it gives you **5 similar movies** you might enjoy.
-
-It does this by reading the movie's description, genres, cast, crew, and keywords — and finding other movies that are most similar.
+You **select a movie** from a dropdown (like **"Avatar"**), click the **Recommend** button, and the app shows you **5 similar movies** along with their **official posters** — all in a clean, side-by-side layout.
 
 ---
 
 ## 🧠 Types of Recommendation Systems (Theory)
 
-There are 3 main types of recommendation systems:
-
-| Type | How It Works | Example |
+| Type | How It Works | Used By |
 |------|-------------|---------|
-| **Content Based** | Recommends based on YOUR past behaviour / what you watched | "You watched Avatar, here are similar sci-fi movies" |
-| **Collaborative Based** | Recommends based on what SIMILAR USERS liked | "People who liked Avatar also liked Interstellar" |
-| **Hybrid** | Combination of both above | Used by **Netflix** |
+| **Content Based** | Recommends based on movie's own content (genre, cast, plot) | This Project ✅ |
+| **Collaborative Based** | Recommends based on what similar users liked | Amazon |
+| **Hybrid** | Combination of both | Netflix |
 
-> 💡 This project uses **Content Based Filtering**.
-
----
-
-## 📂 Dataset Used
-
-Two CSV files from the **TMDB 5000 Movies Dataset**:
-
-- `tmdb_5000_movies.csv` → Movie details (budget, genre, overview, etc.)
-- `tmdb_5000_credits.csv` → Cast and crew info
-
-**Total: 4803 movies**
-
-### 📋 Important Columns Used:
-| Column | What It Means |
-|--------|--------------|
-| `genres` | Type of movie (Action, Drama, etc.) |
-| `keywords` | Important tags related to the movie |
-| `overview` | Short description/summary of the movie |
-| `cast` | Top 3 actors in the movie |
-| `crew` | Director of the movie |
-| `movie_id` | Unique ID for each movie |
-| `title` | Name of the movie (always in English) |
+> 💡 This project uses **Content Based Filtering** — it looks at what's *inside* the movie (description, cast, director, genre, keywords) to find similar ones.
 
 ---
 
-## ⚙️ How It Works — Step by Step
+## 🗂️ Project Structure
 
-### Step 1: 📥 Load the Data
-```python
-credits = pd.read_csv('tmdb_5000_credits.csv')
-movies = pd.read_csv('tmdb_5000_movies.csv')
 ```
-Two files are loaded and then **merged together** using the movie `title` as the common link.
+movie-recommender/
+│
+├── app.py                               # 🌐 Main Streamlit Web App
+│
+├── movie_recommender.ipynb              # 🧪 Jupyter Notebook (ML model building)
+│
+├── joblib_files/
+│   ├── movies.joblib                    # 💾 Saved movie dataframe
+│   └── similarity_compressed.joblib    # 💾 Saved similarity matrix
+│
+├── tmdb_5000_movies.csv                 # 📊 Raw movie data
+├── tmdb_5000_credits.csv                # 📊 Raw cast & crew data
+│
+└── README.md                            # 📖 This file
+```
 
 ---
 
-### Step 2: 🧹 Clean the Data
-- Keep only the useful columns: `genres`, `movie_id`, `keywords`, `title`, `overview`, `cast`, `crew`
-- Remove rows with **missing values**
-- Remove **duplicate** rows
+## ⚙️ How the ML Model Was Built (Inside the Notebook)
+
+### Step 1: 📥 Load & Merge Data
+Two datasets are loaded and merged into one big table using the movie `title` as the key:
+```python
+movies = movies.merge(credits, on='title')
+```
 
 ---
 
-### Step 3: 🔄 Convert Weird Formats
-The genres, keywords, cast, and crew columns look like this in raw form:
+### Step 2: 🧹 Keep Only Useful Columns
+From the 20+ columns, only these 7 are kept:
+
+| Column | Why It's Useful |
+|--------|----------------|
+| `movie_id` | To fetch posters from TMDB API |
+| `title` | Movie name |
+| `overview` | Plot summary |
+| `genres` | Action, Drama, etc. |
+| `keywords` | Important tags |
+| `cast` | Top 3 actors |
+| `crew` | Director only |
+
+---
+
+### Step 3: 🔄 Convert String Data to Real Lists
+Raw data looks like this (a string pretending to be a list):
 ```
 "[{'id': 28, 'name': 'Action'}, {'id': 12, 'name': 'Adventure'}]"
 ```
-This is a **string that looks like a list** — so we use `ast.literal_eval()` to convert it into a real Python list.
-
-Then we extract just the **names**:
+Using `ast.literal_eval()`, this is converted into a proper Python list:
 ```python
-['Action', 'Adventure', 'ScienceFiction']
+['Action', 'Adventure']
 ```
 
 ---
 
-### Step 4: 🎭 Extract Key Information
-
-- **Genres** → extract all genre names
-- **Keywords** → extract all keyword names
-- **Cast** → extract only **top 3 actors** (to keep it focused)
-- **Crew** → extract only the **Director's name**
+### Step 4: 🎭 Extract Key Info
+- **Genres** → all genre names extracted
+- **Keywords** → all keyword names extracted
+- **Cast** → only **top 3 actors** (to keep it focused and avoid noise)
+- **Crew** → only the **Director** extracted
 - **Overview** → split into individual words
 
-Spaces are removed from names to avoid confusion:  
-`"Sam Worthington"` → `"SamWorthington"` (so it's treated as one word)
+Spaces removed from names so they're treated as one word:
+`"Sam Worthington"` → `"SamWorthington"`
 
 ---
 
-### Step 5: 🏷️ Create a "Tags" Column
-All the cleaned info is **combined into one big text column** called `tags`:
+### Step 5: 🏷️ Create a Combined "Tags" Column
+Everything is merged into one text column called `tags`:
 
-```
+```python
 tags = overview + genres + keywords + cast + crew
 ```
 
@@ -107,146 +112,230 @@ tags = overview + genres + keywords + cast + crew
 
 ---
 
-### Step 6: 🔡 Text Processing
+### Step 6: 🔡 Stemming (Root Word Conversion)
+Using `PorterStemmer` from NLTK:
 
-- Convert everything to **lowercase**
-- Apply **Stemming** using `PorterStemmer` from NLTK:
-  - Stemming reduces words to their root form
-  - `"loved"`, `"loves"`, `"loving"` → all become `"love"`
-  - This helps match similar words even if they are in different forms
+| Original Word | After Stemming |
+|--------------|---------------|
+| loved | love |
+| loves | love |
+| loving | love |
+| running | run |
+
+This helps match words even when they appear in different forms.
 
 ---
 
-### Step 7: 🔢 Convert Text to Numbers (Bag of Words)
-Computers can't understand text — they need numbers!
-
-We use **CountVectorizer** from scikit-learn:
-- It picks the **top 5000 most common words** across all movies
-- Removes common English stop words like "the", "is", "and"
-- Each movie becomes a **list of numbers** (a vector) — one number per word, showing how many times that word appears
+### Step 7: 🔢 Bag of Words — Text to Numbers
+Using `CountVectorizer` from scikit-learn:
+- Picks **top 5000 most frequent words** across all movies
+- Removes useless filler words like "the", "is", "and" (stop words)
+- Each movie becomes a **vector (list of numbers)**
 
 **Result:** A matrix of shape `(4803 movies × 5000 words)`
 
 ---
 
-### Step 8: 📐 Calculate Similarity (Cosine Similarity)
-Now we find **how similar any two movies are** using **Cosine Similarity**:
+### Step 8: 📐 Cosine Similarity
+Measures how similar two movies are based on their word vectors:
 
-- Think of each movie as an arrow pointing in a certain direction in space
-- Two movies pointing in the **same direction** → **very similar** (score close to `1`)
-- Two movies pointing in **opposite directions** → **not similar** (score close to `0`)
+- Score = **1** → Almost identical movies
+- Score = **0** → Completely different movies
 
 ```python
 similarity = cosine_similarity(vectors)
+# Result: a 4803 × 4803 matrix
+# Every movie is compared with every other movie
 ```
-
-This creates a `4803 × 4803` table — each movie compared with every other movie!
 
 ---
 
-### Step 9: 🎯 The `recommend()` Function
+### Step 9: 💾 Save the Model with joblib
+Both the dataframe and similarity matrix are saved so the web app doesn't recalculate everything from scratch every time:
+
 ```python
-def recommend(movie):
-    movie_index = df[df['title'] == movie].index[0]
+import joblib
+joblib.dump(df, 'joblib_files/movies.joblib')
+joblib.dump(similarity, 'joblib_files/similarity_compressed.joblib')
+```
+
+---
+
+## 🌐 How the Web App Works (`app.py`)
+
+### Step 1: 📦 Load Saved Model Files
+```python
+df = load('joblib_files/movies.joblib')
+similarity = load('joblib_files/similarity_compressed.joblib')
+```
+Pre-built similarity data is loaded instantly — no need to recalculate!
+
+---
+
+### Step 2: 🖼️ Fetch Movie Posters from TMDB API
+```python
+def fetch_poster(movie_id):
+    url = f"https://api.themoviedb.org/3/movie/{movie_id}?api_key={api_key}"
+    response = session.get(url, timeout=10)
+    data = response.json()
+    poster_path = data.get("poster_path")
+    return "https://image.tmdb.org/t/p/w500" + poster_path
+```
+
+- Uses the **TMDB (The Movie Database) API** to fetch official movie posters
+- Each movie has a unique `movie_id` that is used to look it up
+- If no poster is found → a placeholder image is shown instead
+- Uses `requests.Session()` for faster repeated API calls (reuses the connection)
+- `@st.cache_data` decorator means the poster is fetched **only once per movie** and cached in memory
+
+---
+
+### Step 3: 🎯 The `recommend()` Function
+```python
+def recommend(movie_name):
+    movie_index = df[df['title'] == movie_name].index[0]
     distances = similarity[movie_index]
-    sorted_movie_list = sorted(list(enumerate(distances)), reverse=True, key=lambda x: x[1])[1:6]
-    
+    sorted_movie_list = sorted(
+        list(enumerate(distances)), reverse=True, key=lambda x: x[1]
+    )[1:6]  # Top 5, skip index 0 (the movie itself)
+
     for i in sorted_movie_list:
-        print(df.iloc[i[0]]['title'])
+        names.append(df.iloc[i[0]].title)
+        posters.append(fetch_poster(df.iloc[i[0]].movie_id))
+
+    return names, posters
 ```
 
-**What it does:**
-1. Find the index of the input movie
-2. Get its similarity scores with all other movies
-3. Sort them from most similar to least similar
-4. Skip the first result (it's the movie itself!)
-5. Print the **Top 5** most similar movies
+What it does step by step:
+1. Finds the **row index** of the selected movie in the dataframe
+2. Gets its **similarity scores** with all 4803 other movies
+3. **Sorts** them from highest to lowest similarity
+4. Skips `[0]` — that's the movie itself!
+5. Takes the **next 5** most similar movies `[1:6]`
+6. Fetches their **names and posters**
+7. Returns both lists
 
 ---
 
-## 🚀 How to Run This Project
-
-### Requirements
-```
-pandas
-numpy
-scikit-learn
-nltk
-ast (built-in)
-```
-
-### Installation
-```bash
-pip install pandas numpy scikit-learn nltk
-```
-
-### Steps
-1. Upload the two dataset ZIP files to your Colab:
-   - `tmdb_5000_credits.csv.zip`
-   - `tmdb_5000_movies.csv.zip`
-
-2. Unzip them:
+### Step 4: 🖥️ The Streamlit UI
 ```python
-!unzip tmdb_5000_credits.csv.zip
-!unzip tmdb_5000_movies.csv.zip
+st.title("🎬 Movie Recommendation System")
+movie_name = st.selectbox('Select movie:', df['title'].values)
+
+if st.button("Recommend"):
+    with st.spinner("Loading posters..."):
+        names, posters = recommend(movie_name)
+
+    cols = st.columns(5)
+    for i in range(5):
+        with cols[i]:
+            st.image(posters[i])
+            st.caption(names[i])
 ```
 
-3. Run all the cells in order
+| Streamlit Component | What It Does |
+|--------------------|-------------|
+| `st.title()` | Shows the big heading at the top of the page |
+| `st.selectbox()` | Dropdown menu with all 4803 movie titles |
+| `st.button()` | The "Recommend" button |
+| `st.spinner()` | Shows a loading animation while posters are being fetched |
+| `st.columns(5)` | Creates 5 equal side-by-side columns |
+| `st.image()` | Displays the movie poster image |
+| `st.caption()` | Shows the movie title below each poster |
 
-4. At the end, enter any movie title when prompted:
+---
+
+## 📊 Full Project Pipeline (Simple View)
+
 ```
-enter movie title: Avatar
-```
-
-### Example Output
-```
-Recommended Movies:
-
-Aliens vs Predator: Requiem
-
-Titan A.E.
-
-Independence Day
-
-Ender's Game
-
-Guardians of the Galaxy
+Raw CSV Files (movies + credits)
+           ↓
+     Merge & Clean Data
+           ↓
+    Extract: Genre, Keywords,
+         Cast, Director, Plot
+           ↓
+     Combine into "Tags"
+           ↓
+    Stemming (word → root form)
+           ↓
+  CountVectorizer (text → numbers)
+           ↓
+    Cosine Similarity Matrix
+           ↓
+       Save with joblib
+           ↓
+     Load in Streamlit App
+           ↓
+     User Selects a Movie
+           ↓
+   Find Top 5 Similar Movies
+           ↓
+    Fetch Posters from TMDB API
+           ↓
+    Show Results with Posters 🎬
 ```
 
 ---
 
-## 🗂️ Project Structure
+## 🚀 How to Run This Project Locally
 
+### 1. Clone / Download the Project
+```bash
+git clone https://github.com/your-username/movie-recommender.git
+cd movie-recommender
 ```
-movie_recommender/
-│
-├── movie_recommender.ipynb        # Main Jupyter Notebook
-├── tmdb_5000_movies.csv           # Movie details dataset
-├── tmdb_5000_credits.csv          # Cast & crew dataset
-└── README.md                      # This file
+
+### 2. Install Required Libraries
+```bash
+pip install streamlit pandas numpy scikit-learn nltk joblib requests
+```
+
+### 3. Run the Notebook First (to generate joblib files)
+Open `movie_recommender.ipynb` in Jupyter or Google Colab and run all cells.
+
+This will create:
+- `joblib_files/movies.joblib`
+- `joblib_files/similarity_compressed.joblib`
+
+### 4. Run the Streamlit App
+```bash
+streamlit run app.py
+```
+
+### 5. Open in Browser
+```
+http://localhost:8501
 ```
 
 ---
 
-## 📊 Summary of the ML Pipeline
+## 🔑 TMDB API Key Setup
 
+This project uses the **TMDB API** to fetch movie posters.
+
+1. Go to [https://www.themoviedb.org/](https://www.themoviedb.org/) and create a free account
+2. Go to **Settings → API** and generate your free API key
+3. Replace the key in `app.py`:
+```python
+api_key = "your_api_key_here"
 ```
-Raw Data
-   ↓
-Merge & Clean
-   ↓
-Extract Genres, Keywords, Cast, Director
-   ↓
-Combine into Tags
-   ↓
-Stemming (word root form)
-   ↓
-CountVectorizer (text → numbers)
-   ↓
-Cosine Similarity (find similar movies)
-   ↓
-recommend("movie name") → Top 5 Similar Movies
-```
+
+> ⚠️ Never share your real API key publicly — use environment variables in production!
+
+---
+
+## 📦 Libraries Used
+
+| Library | Purpose |
+|---------|---------|
+| `streamlit` | Build the web app UI |
+| `pandas` | Load and manipulate data |
+| `numpy` | Numerical operations |
+| `scikit-learn` | CountVectorizer + Cosine Similarity |
+| `nltk` | PorterStemmer for stemming |
+| `joblib` | Save and load the ML model files |
+| `requests` | Call the TMDB API to get posters |
 
 ---
 
@@ -255,28 +344,23 @@ recommend("movie name") → Top 5 Similar Movies
 | Concept | Simple Explanation |
 |---------|-------------------|
 | **Stemming** | Cutting words to their root — "running" → "run" |
-| **CountVectorizer** | Counts how many times each word appears in a movie's tags |
-| **Cosine Similarity** | Measures how "close" two movies are based on their word counts |
-| **Bag of Words** | A technique where we just count words, ignoring their order |
-| **ast.literal_eval()** | Converts a string `"[1,2,3]"` into an actual list `[1,2,3]` |
-
----
-
-## 👨‍💻 Built With
-
-- **Python** 🐍
-- **Pandas** — data manipulation
-- **NumPy** — numerical operations
-- **Scikit-learn** — CountVectorizer & Cosine Similarity
-- **NLTK** — stemming
-- **Google Colab** — development environment
+| **CountVectorizer** | Counts word occurrences and turns text into numbers |
+| **Cosine Similarity** | Measures how "close" two movies are in terms of content |
+| **Bag of Words** | Technique that counts words, ignoring their order |
+| **joblib** | Like a "save file" for ML models — load it instantly later |
+| **TMDB API** | Online database that provides official movie posters and info |
+| **@st.cache_data** | Saves poster URLs in memory so they're not re-fetched every time |
+| **requests.Session()** | Reuses internet connection for faster repeated API calls |
+| **ast.literal_eval()** | Converts a string `"[1,2,3]"` into an actual Python list `[1,2,3]` |
 
 ---
 
 ## 📝 Notes
 
-- The dataset contains **4803 movies**
-- Only the **top 3 actors** from each movie's cast are considered
-- Only the **director** is taken from the crew
-- The model is **content-based** — it does NOT consider user ratings or reviews
-- This is a **beginner-level ML project** — great for learning NLP and recommendation systems!
+- Dataset contains **4803 movies**
+- Only **top 3 actors** are used from the cast
+- Only the **Director** is used from crew
+- Model is **content-based** — no user ratings involved
+- Posters are fetched **live** from the TMDB API using `movie_id`
+- If a poster is unavailable, a **placeholder image** is shown
+- The similarity matrix is **pre-computed and saved** — the app loads it instantly without recalculating

@@ -2,8 +2,9 @@ import streamlit as st
 from joblib import load
 import requests
 import time
+import os
 
-api_key = "a6a617ebb6f117bffd65d4781c88eac2"
+api_key =os.getenv("api_key")
 
 
 session = requests.Session()

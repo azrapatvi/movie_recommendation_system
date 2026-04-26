@@ -33,7 +33,7 @@ You **select a movie** from a dropdown (like **"Avatar"**), click the **Recommen
 ```
 movie-recommender/
 │
-├── app.py                               # 🌐 Main Streamlit Web App
+├── main.py                               # 🌐 Main Streamlit Web App
 │
 ├── movie_recommender.ipynb              # 🧪 Jupyter Notebook (ML model building)
 │
